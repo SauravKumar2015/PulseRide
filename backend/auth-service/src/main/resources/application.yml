@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: auth-service
+
+  # postgre database configuration
+  datasource:
+    url: postgresql://localhost:5432/pulseride_auth
+    username: postgres
+    password: 123
+    driver-class-name: org.postgresql.Driver
+  
+  # JPA & Hibernate Configuration
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        formate_sql: true
+
+server:
+  port: 8081
