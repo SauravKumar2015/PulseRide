@@ -4,9 +4,9 @@ spring:
 
   # PostgreSQL database configuration
   datasource:
-    url: jdbc:postgresql://localhost:5432/pulseride_auth
-    username: postgres
-    password: 123
+    url: ${AUTH_DB_URL:jdbc:postgresql://localhost:5432/pulseride_auth}
+    username: ${AUTH_DB_USERNAME:postgres}
+    password: ${AUTH_DB_PASSWORD:123}
     driver-class-name: org.postgresql.Driver
 
   # JPA & Hibernate configuration
@@ -19,4 +19,13 @@ spring:
         format_sql: true
 
 server:
+  servlet:
+    context-path: /pulse-ride
   port: 8081
+
+jwt:
+  # Override this value with JWT_SECRET outside local development.
+  secret: ${JWT_SECRET:ca3ae9dc7984009cfa286be0ffeabd5e78b0620e51fbf7f1f40c1811ca08b781}
+  issuer: ${JWT_ISSUER:pulseride-auth}
+  access-token-expiration: ${JWT_ACCESS_EXPIRATION:900}
+  refresh-token-expiration: ${JWT_REFRESH_EXPIRATION:2592000}
