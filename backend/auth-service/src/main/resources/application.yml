@@ -29,3 +29,7 @@ jwt:
   issuer: ${JWT_ISSUER:pulseride-auth}
   access-token-expiration: ${JWT_ACCESS_EXPIRATION:900}
   refresh-token-expiration: ${JWT_REFRESH_EXPIRATION:2592000}
+
+services:
+  driver:
+    url: ${DRIVER_SERVICE_URL:http://localhost:8083}

@@ -1,19 +1,26 @@
 spring:
   application:
     name: driver-service
+
   datasource:
     url: ${DRIVER_DB_URL:jdbc:postgresql://localhost:5432/pulseride_driver}
     username: ${DRIVER_DB_USERNAME:postgres}
     password: ${DRIVER_DB_PASSWORD:123}
     driver-class-name: org.postgresql.Driver
+
   jpa:
     hibernate:
       ddl-auto: ${DRIVER_JPA_DDL_AUTO:update}
     open-in-view: false
+
 server:
   port: ${DRIVER_SERVICE_PORT:8083}
+  servlet:
+    context-path: /pulse-ride
+
 jwt:
   secret: ${JWT_SECRET:ca3ae9dc7984009cfa286be0ffeabd5e78b0620e51fbf7f1f40c1811ca08b781}
   issuer: ${JWT_ISSUER:pulseride-auth}
+
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}

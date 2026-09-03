@@ -35,13 +35,18 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final DriverClient driverClient;
 
     @Override
     @Transactional
     public UserResponse register(RegisterRequest request) {
+
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+
         if (userRepository.existsByEmail(email)) {
-            throw new UserAlreadyExistsException("User with this email already exists");
+            throw new UserAlreadyExistsException(
+                    "User with this email already exists"
+            );
         }
 
         User user = User.builder()
@@ -53,10 +58,18 @@ public class UserServiceImpl implements UserService {
                 .build();
 
         User savedUser;
+
         try {
             savedUser = userRepository.save(user);
         } catch (DataIntegrityViolationException exception) {
-            throw new UserAlreadyExistsException("User with this email already exists");
+            throw new UserAlreadyExistsException(
+                    "User with this email already exists"
+            );
+        }
+
+        // Automatically create driver profile
+        if ("DRIVER".equals(savedUser.getRole())) {
+            driverClient.createDriverProfile(savedUser.getId());
         }
 
         return UserResponse.builder()

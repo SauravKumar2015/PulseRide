@@ -33,75 +33,175 @@ import com.pulseride.auth.security.RefreshTokenService;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceImplTest {
-    @Mock UserRepository userRepository;
-    @Mock RefreshTokenRepository refreshTokenRepository;
-    @Mock JwtService jwtService;
-    @Mock RefreshTokenService refreshTokenService;
 
-    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    @Mock
+    UserRepository userRepository;
+
+    @Mock
+    RefreshTokenRepository refreshTokenRepository;
+
+    @Mock
+    JwtService jwtService;
+
+    @Mock
+    RefreshTokenService refreshTokenService;
+
+    // NEW
+    @Mock
+    DriverClient driverClient;
+
+    private final PasswordEncoder passwordEncoder =
+            new BCryptPasswordEncoder();
+
     private UserServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new UserServiceImpl(userRepository, refreshTokenRepository, passwordEncoder, jwtService, refreshTokenService);
+
+        service = new UserServiceImpl(
+                userRepository,
+                refreshTokenRepository,
+                passwordEncoder,
+                jwtService,
+                refreshTokenService,
+                driverClient
+        );
     }
 
     @Test
     void registerHashesPasswordAndDoesNotReturnIt() {
+
         RegisterRequest request = new RegisterRequest();
+
         request.setName("Sam Rider");
         request.setEmail("SAM@example.com");
         request.setPassword("Password1!");
         request.setRole("USER");
-        User saved = User.builder().id(1L).name("Sam Rider").email("sam@example.com")
-            .password("encoded").role("PASSENGER").createdAt(LocalDateTime.now()).build();
-        when(userRepository.existsByEmail("sam@example.com")).thenReturn(false);
-        when(userRepository.save(any(User.class))).thenReturn(saved);
+
+        User saved = User.builder()
+                .id(1L)
+                .name("Sam Rider")
+                .email("sam@example.com")
+                .password("encoded")
+                .role("PASSENGER")
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        when(userRepository.existsByEmail("sam@example.com"))
+                .thenReturn(false);
+
+        when(userRepository.save(any(User.class)))
+                .thenReturn(saved);
 
         var response = service.register(request);
 
-        assertThat(response.getEmail()).isEqualTo("sam@example.com");
-        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(userCaptor.capture());
-        assertThat(passwordEncoder.matches("Password1!", userCaptor.getValue().getPassword())).isTrue();
+        assertThat(response.getEmail())
+                .isEqualTo("sam@example.com");
+
+        ArgumentCaptor<User> userCaptor =
+                ArgumentCaptor.forClass(User.class);
+
+        verify(userRepository)
+                .save(userCaptor.capture());
+
+        assertThat(
+                passwordEncoder.matches(
+                        "Password1!",
+                        userCaptor.getValue().getPassword()
+                )
+        ).isTrue();
     }
 
     @Test
     void loginUsesGenericFailureForUnknownUser() {
-        when(userRepository.findByEmail("unknown@example.com")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.login(new LoginRequest("unknown@example.com", "Password1!")))
-                .isInstanceOf(BadCredentialsException.class)
-                .hasMessage("Authentication failed");
+        when(
+                userRepository.findByEmail(
+                        "unknown@example.com"
+                )
+        ).thenReturn(Optional.empty());
+
+        assertThatThrownBy(
+                () -> service.login(
+                        new LoginRequest(
+                                "unknown@example.com",
+                                "Password1!"
+                        )
+                )
+        )
+        .isInstanceOf(BadCredentialsException.class)
+        .hasMessage("Authentication failed");
     }
 
     @Test
     void refreshRevokesOldTokenAndIssuesReplacement() {
-        User user = User.builder().id(1L).role("PASSENGER").build();
+
+        User user = User.builder()
+                .id(1L)
+                .role("PASSENGER")
+                .build();
+
         RefreshToken stored = new RefreshToken();
+
         stored.setUser(user);
-        stored.setExpiresAt(LocalDateTime.now().plusDays(1));
-        when(refreshTokenService.findValid("old-token")).thenReturn(stored);
-        when(jwtService.createAccessToken(user)).thenReturn("access");
-        when(jwtService.getAccessTokenExpirationSeconds()).thenReturn(900L);
-        when(refreshTokenService.create(user)).thenReturn("new-token");
+        stored.setExpiresAt(
+                LocalDateTime.now().plusDays(1)
+        );
 
-        TokenResponse response = service.refresh(new RefreshTokenRequest("old-token"));
+        when(
+                refreshTokenService.findValid("old-token")
+        ).thenReturn(stored);
 
-        assertThat(stored.isRevoked()).isTrue();
-        assertThat(response.refreshToken()).isEqualTo("new-token");
-        verify(refreshTokenRepository).save(stored);
+        when(
+                jwtService.createAccessToken(user)
+        ).thenReturn("access");
+
+        when(
+                jwtService.getAccessTokenExpirationSeconds()
+        ).thenReturn(900L);
+
+        when(
+                refreshTokenService.create(user)
+        ).thenReturn("new-token");
+
+        TokenResponse response =
+                service.refresh(
+                        new RefreshTokenRequest("old-token")
+                );
+
+        assertThat(stored.isRevoked())
+                .isTrue();
+
+        assertThat(response.refreshToken())
+                .isEqualTo("new-token");
+
+        verify(refreshTokenRepository)
+                .save(stored);
     }
 
     @Test
     void logoutRevokesOnlyTokenOwnedByAuthenticatedUser() {
-        User user = User.builder().id(7L).build();
+
+        User user = User.builder()
+                .id(7L)
+                .build();
+
         RefreshToken stored = new RefreshToken();
+
         stored.setUser(user);
-        when(refreshTokenService.findValid("refresh-token")).thenReturn(stored);
 
-        service.logout(new LogoutRequest("refresh-token"), "7");
+        when(
+                refreshTokenService.findValid(
+                        "refresh-token"
+                )
+        ).thenReturn(stored);
 
-        assertThat(stored.isRevoked()).isTrue();
+        service.logout(
+                new LogoutRequest("refresh-token"),
+                "7"
+        );
+
+        assertThat(stored.isRevoked())
+                .isTrue();
     }
 }
