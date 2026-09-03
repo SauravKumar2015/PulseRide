@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: pulseride-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-123}
+      POSTGRES_MULTIPLE_DATABASES: pulseride_auth,pulseride_user,pulseride_driver,pulseride_ride,pulseride_payment,pulseride_pricing,pulseride_admin,pulseride_tracking,pulseride_notification
+    ports:
+      - "5432:5432"
+    volumes:
+      - pulseride-postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pulseride-postgres-data:

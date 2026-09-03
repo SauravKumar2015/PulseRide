@@ -1,3 +1,3 @@
-public class RefundController {
-    
-}
+package com.pulseride.payment.controller;
+import org.springframework.security.access.prepost.PreAuthorize; import org.springframework.security.core.Authentication; import org.springframework.web.bind.annotation.*; import com.pulseride.payment.service.PaymentService; import lombok.RequiredArgsConstructor;
+@RestController @RequestMapping("/payments") @RequiredArgsConstructor public class RefundController { private final PaymentService service; @PostMapping("/{id}/refund") @PreAuthorize("isAuthenticated()") public PaymentService.PaymentResponse refund(@PathVariable String id,@RequestHeader("Idempotency-Key") String key,Authentication auth){return service.refund(auth.getName(),id,key); } }

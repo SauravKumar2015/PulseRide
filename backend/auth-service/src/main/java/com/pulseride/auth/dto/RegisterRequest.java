@@ -28,4 +28,8 @@ public class RegisterRequest {
     )
     private String password;
 
+    @NotBlank(message = "Role is required")
+    @Pattern(regexp = "USER|DRIVER", message = "Public registration role must be USER or DRIVER")
+    private String role;
+
 }

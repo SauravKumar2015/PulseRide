@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: pricing-service
+  datasource:
+    url: ${PRICING_DB_URL:jdbc:postgresql://localhost:5432/pulseride_pricing}
+    username: ${PRICING_DB_USERNAME:postgres}
+    password: ${PRICING_DB_PASSWORD:123}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: ${PRICING_JPA_DDL_AUTO:update}
+    open-in-view: false
+server:
+  port: ${PRICING_SERVICE_PORT:8086}
+pricing:
+  base-fare: ${PRICING_BASE_FARE:50.00}
+  distance-rate: ${PRICING_DISTANCE_RATE:12.00}
+  time-rate: ${PRICING_TIME_RATE:2.00}
+  service-fee: ${PRICING_SERVICE_FEE:5.00}
+  currency: ${PRICING_CURRENCY:INR}
+jwt:
+  secret: ${JWT_SECRET}
+  issuer: ${JWT_ISSUER:pulseride-auth}

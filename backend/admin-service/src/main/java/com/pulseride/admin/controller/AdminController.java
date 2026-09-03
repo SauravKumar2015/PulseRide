@@ -1,0 +1,9 @@
+package com.pulseride.admin.controller;
+import java.util.*; import org.springframework.security.access.prepost.PreAuthorize; import org.springframework.security.core.Authentication; import org.springframework.web.bind.annotation.*; import com.pulseride.admin.dto.StatusRequest; import com.pulseride.admin.service.AdminService; import jakarta.validation.Valid; import lombok.RequiredArgsConstructor;
+@RestController @RequestMapping("/admin") @PreAuthorize("hasRole('ADMIN')") @RequiredArgsConstructor public class AdminController { private final AdminService service;
+ @GetMapping("/users") public List<Map<String,Object>> users(){return service.empty();} @PatchMapping("/users/{id}/status") public void userStatus(@PathVariable String id,@Valid @RequestBody StatusRequest r,Authentication a){service.status(a.getName(),"USER",id,r.status());}
+ @GetMapping("/drivers") public List<Map<String,Object>> drivers(){return service.empty();} @PatchMapping("/drivers/{id}/status") public void driverStatus(@PathVariable String id,@Valid @RequestBody StatusRequest r,Authentication a){service.status(a.getName(),"DRIVER",id,r.status());}
+ @GetMapping("/rides") public List<Map<String,Object>> rides(){return service.empty();} @GetMapping("/payments") public List<Map<String,Object>> payments(){return service.empty();} @PostMapping("/payments/{id}/refund") public void refund(@PathVariable String id,Authentication a){service.status(a.getName(),"PAYMENT_REFUND",id,"REQUESTED");}
+ @GetMapping("/surge-zones") public List<Map<String,Object>> zones(){return service.empty();} @PatchMapping("/surge-zones/{id}") public void zone(@PathVariable String id,@RequestBody Map<String,Object> body,Authentication a){service.status(a.getName(),"SURGE_ZONE",id,"UPDATED");}
+ @GetMapping("/audit-logs") public List<AdminService.Audit> audit(){return service.audit();} @GetMapping("/metrics") public Map<String,Object> metrics(){return service.metrics();}
+}

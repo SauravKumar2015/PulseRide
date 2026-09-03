@@ -1,0 +1,3 @@
+package com.pulseride.pricing.controller;
+import java.util.List; import org.springframework.security.access.prepost.PreAuthorize; import org.springframework.web.bind.annotation.*; import com.pulseride.pricing.dto.*; import com.pulseride.pricing.service.PricingService; import jakarta.validation.Valid; import lombok.RequiredArgsConstructor;
+@RestController @RequestMapping("/pricing") @RequiredArgsConstructor public class PricingController { private final PricingService service; @PostMapping("/quote") @PreAuthorize("hasAnyRole('PASSENGER','DRIVER')") public QuoteResponse quote(@Valid @RequestBody QuoteRequest r){return service.quote(r);} @GetMapping("/surge-zones") @PreAuthorize("isAuthenticated()") public List<SurgeZoneResponse> zones(){return service.zones();} }

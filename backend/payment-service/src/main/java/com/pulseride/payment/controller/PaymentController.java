@@ -1,3 +1,3 @@
-public class PaymentController {
-    
-}
+package com.pulseride.payment.controller;
+import org.springframework.security.access.prepost.PreAuthorize; import org.springframework.security.core.Authentication; import org.springframework.web.bind.annotation.*; import com.pulseride.payment.service.PaymentService; import jakarta.validation.Valid; import lombok.RequiredArgsConstructor;
+@RestController @RequestMapping("/payments") @RequiredArgsConstructor public class PaymentController { private final PaymentService service; @PostMapping("/orders") @PreAuthorize("hasRole('PASSENGER')") public PaymentService.PaymentResponse order(@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody PaymentService.OrderRequest request,Authentication auth){return service.order(auth.getName(),key,request);} @GetMapping("/{id}") @PreAuthorize("isAuthenticated()") public PaymentService.PaymentResponse get(@PathVariable String id,Authentication auth){return service.get(auth.getName(),id);} @PostMapping("/{id}/verify") @PreAuthorize("isAuthenticated()") public PaymentService.PaymentResponse verify(@PathVariable String id,@RequestHeader("Idempotency-Key") String key,Authentication auth){return service.verify(auth.getName(),id,key);} }

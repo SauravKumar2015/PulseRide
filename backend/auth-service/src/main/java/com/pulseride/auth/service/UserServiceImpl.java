@@ -48,7 +48,7 @@ public class UserServiceImpl implements UserService {
                 .name(request.getName().trim())
                 .email(email)
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role("PASSENGER")
+                .role(request.getRole().trim().toUpperCase(Locale.ROOT))
                 .createdAt(LocalDateTime.now())
                 .build();
 

@@ -52,6 +52,7 @@ class UserServiceImplTest {
         request.setName("Sam Rider");
         request.setEmail("SAM@example.com");
         request.setPassword("Password1!");
+        request.setRole("USER");
         User saved = User.builder().id(1L).name("Sam Rider").email("sam@example.com")
             .password("encoded").role("PASSENGER").createdAt(LocalDateTime.now()).build();
         when(userRepository.existsByEmail("sam@example.com")).thenReturn(false);

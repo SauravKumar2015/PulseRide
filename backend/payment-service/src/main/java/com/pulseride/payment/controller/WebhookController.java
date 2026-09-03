@@ -1,3 +1,3 @@
-public class WebhookController {
-    
-}
+package com.pulseride.payment.controller;
+import org.springframework.http.ResponseEntity; import org.springframework.web.bind.annotation.*; import com.pulseride.payment.service.PaymentService; import lombok.RequiredArgsConstructor;
+@RestController @RequestMapping("/payments/webhook") @RequiredArgsConstructor public class WebhookController { private final PaymentService service; @PostMapping("/{provider}") public ResponseEntity<Void> webhook(@PathVariable String provider,@RequestHeader("X-Provider-Signature") String signature,@RequestBody String payload){service.webhook(provider,signature,payload);return ResponseEntity.accepted().build();} }
