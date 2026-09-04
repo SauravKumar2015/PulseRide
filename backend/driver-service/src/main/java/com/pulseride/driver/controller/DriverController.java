@@ -64,8 +64,4 @@ public class DriverController {
         return service.setVehicleType(auth.getName(), request);
     }
 
-    // @PostMapping("/internal/profile")
-    // public DriverResponse createInternalProfile(@RequestBody String userId) {
-    //     return service.createProfile(userId);
-    // }
 }

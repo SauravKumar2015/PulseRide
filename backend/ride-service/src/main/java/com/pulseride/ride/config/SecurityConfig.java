@@ -1,19 +1,101 @@
 package com.pulseride.ride.config;
+
 import java.nio.charset.StandardCharsets;
+
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.jwt.*;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
-@Configuration @EnableMethodSecurity
+
+@Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
- @Bean SecretKey jwtSecretKey(@Value("${jwt.secret}") String secret) { return new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"); }
- @Bean JwtDecoder jwtDecoder(SecretKey key, @Value("${jwt.issuer}") String issuer) { var d = NimbusJwtDecoder.withSecretKey(key).build(); d.setJwtValidator(JwtValidators.createDefaultWithIssuer(issuer)); return d; }
- @Bean JwtAuthenticationConverter jwtAuthenticationConverter() { var c = new JwtAuthenticationConverter(); c.setJwtGrantedAuthoritiesConverter(jwt -> java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + jwt.getClaimAsString("role")))); return c; }
- @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationConverter c) throws Exception { return http.csrf(x -> x.disable()).sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS)).authorizeHttpRequests(a -> a.anyRequest().authenticated()).oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(c))).build(); }
+
+    private final String jwtSecret;
+    private final String jwtIssuer;
+
+    public SecurityConfig(
+            @Value("${jwt.secret}") String jwtSecret,
+            @Value("${jwt.issuer}") String jwtIssuer) {
+        this.jwtSecret = jwtSecret;
+        this.jwtIssuer = jwtIssuer;
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http) throws Exception {
+
+        http
+                .csrf(csrf -> csrf.disable())
+
+                .cors(cors -> {
+                })
+
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        )
+                )
+
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/actuator/info"
+                        ).permitAll()
+                        .anyRequest().authenticated()
+                )
+
+                .oauth2ResourceServer(oauth2 ->
+                        oauth2.jwt(jwt ->
+                                jwt.jwtAuthenticationConverter(
+                                        jwtAuthenticationConverter()
+                                )
+                        )
+                );
+
+        return http.build();
+    }
+
+    @Bean
+    public JwtDecoder jwtDecoder() {
+
+        SecretKey secretKey = new SecretKeySpec(
+                jwtSecret.getBytes(StandardCharsets.UTF_8),
+                "HmacSHA256"
+        );
+
+        NimbusJwtDecoder decoder =
+                NimbusJwtDecoder.withSecretKey(secretKey)
+                        .macAlgorithm(MacAlgorithm.HS256)
+                        .build();
+
+        decoder.setJwtValidator(
+                JwtValidators.createDefaultWithIssuer(jwtIssuer)
+        );
+
+        return decoder;
+    }
+
+    @Bean
+    public JwtAuthenticationConverter jwtAuthenticationConverter() {
+
+        JwtAuthenticationConverter converter =
+                new JwtAuthenticationConverter();
+
+        converter.setPrincipalClaimName("sub");
+
+        return converter;
+    }
 }
+
