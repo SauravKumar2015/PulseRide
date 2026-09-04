@@ -26,25 +26,21 @@ public class RideStatusHistory {
     @Column(name = "history_id", nullable = false, updatable = false)
     private UUID historyId;
 
-    @Column(name = "ride_id", nullable = false, updatable = false)
+    @Column(name = "ride_id", nullable = false)
     private UUID rideId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 30)
-    private RideStatus status;
-
-    @Column(name = "changed_at", nullable = false, updatable = false)
-    private LocalDateTime changedAt;
-
-    /**
-     * Optional identifier of the user/driver/admin
-     * responsible for the status change.
-     */
     @Column(name = "changed_by")
-    private UUID changedBy;
+    private Long changedBy;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private RideStatus status;
 
     @Column(name = "reason", length = 500)
     private String reason;
+
+    @Column(name = "changed_at", nullable = false)
+    private LocalDateTime changedAt;
 
     @PrePersist
     protected void onCreate() {

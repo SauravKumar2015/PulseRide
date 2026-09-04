@@ -6,53 +6,50 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.pulseride.ride.dto.request.CancelRideRequest;
-import com.pulseride.ride.dto.request.CreateRideRequest;
-import com.pulseride.ride.dto.response.RideResponse;
-import com.pulseride.ride.dto.response.RideStatusHistoryResponse;
+import com.pulseride.ride.dto.CancelRideRequest;
+import com.pulseride.ride.dto.CreateRideRequest;
+import com.pulseride.ride.dto.RideResponse;
+import com.pulseride.ride.dto.RideStatusHistoryResponse;
 import com.pulseride.ride.entity.Ride;
 import com.pulseride.ride.entity.RideStatus;
 import com.pulseride.ride.entity.RideStatusHistory;
 import com.pulseride.ride.repository.RideRepository;
 import com.pulseride.ride.repository.RideStatusHistoryRepository;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 @Transactional
 public class RideServiceImpl implements RideService {
 
     private final RideRepository rideRepository;
+
     private final RideStatusHistoryRepository rideStatusHistoryRepository;
-
-    public RideServiceImpl(
-            RideRepository rideRepository,
-            RideStatusHistoryRepository rideStatusHistoryRepository) {
-
-        this.rideRepository = rideRepository;
-        this.rideStatusHistoryRepository =
-                rideStatusHistoryRepository;
-    }
 
     @Override
     public RideResponse createRide(
-            UUID riderId,
+            Long riderId,
             CreateRideRequest request) {
 
         Ride ride = new Ride();
 
         ride.setRiderId(riderId);
+        ride.setStatus(RideStatus.REQUESTED);
+
         ride.setPickupLatitude(request.getPickupLatitude());
         ride.setPickupLongitude(request.getPickupLongitude());
+
         ride.setDropoffLatitude(request.getDropoffLatitude());
         ride.setDropoffLongitude(request.getDropoffLongitude());
-        ride.setStatus(RideStatus.REQUESTED);
 
         Ride savedRide = rideRepository.save(ride);
 
         saveStatusHistory(
                 savedRide,
-                RideStatus.REQUESTED,
                 riderId,
-                null
+                RideStatus.REQUESTED,
+                "Ride requested"
         );
 
         return mapToResponse(savedRide);
@@ -62,9 +59,9 @@ public class RideServiceImpl implements RideService {
     @Transactional(readOnly = true)
     public RideResponse getRide(
             UUID rideId,
-            UUID userId) {
+            Long userId) {
 
-        Ride ride = getRideById(rideId);
+        Ride ride = getRideEntity(rideId);
 
         validateRideAccess(ride, userId);
 
@@ -73,8 +70,7 @@ public class RideServiceImpl implements RideService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<RideResponse> getRideHistory(
-            UUID riderId) {
+    public List<RideResponse> getRideHistory(Long riderId) {
 
         return rideRepository
                 .findByRiderIdOrderByCreatedAtDesc(riderId)
@@ -86,14 +82,23 @@ public class RideServiceImpl implements RideService {
     @Override
     public RideResponse cancelRide(
             UUID rideId,
-            UUID riderId,
+            Long riderId,
             CancelRideRequest request) {
 
-        Ride ride = getRideById(rideId);
+        Ride ride = getRideEntity(rideId);
 
-        validateRiderOwnership(ride, riderId);
+        if (!ride.getRiderId().equals(riderId)) {
+            throw new SecurityException(
+                    "You are not authorized to cancel this ride"
+            );
+        }
 
-        validateCancellation(ride);
+        if (!isCancellationAllowed(ride.getStatus())) {
+            throw new IllegalStateException(
+                    "Ride cannot be cancelled in status: "
+                            + ride.getStatus()
+            );
+        }
 
         String reason = request != null
                 ? request.getReason()
@@ -105,8 +110,8 @@ public class RideServiceImpl implements RideService {
 
         saveStatusHistory(
                 savedRide,
-                RideStatus.CANCELLED,
                 riderId,
+                RideStatus.CANCELLED,
                 reason
         );
 
@@ -117,9 +122,9 @@ public class RideServiceImpl implements RideService {
     @Transactional(readOnly = true)
     public List<RideStatusHistoryResponse> getRideStatusHistory(
             UUID rideId,
-            UUID userId) {
+            Long userId) {
 
-        Ride ride = getRideById(rideId);
+        Ride ride = getRideEntity(rideId);
 
         validateRideAccess(ride, userId);
 
@@ -130,9 +135,10 @@ public class RideServiceImpl implements RideService {
                 .toList();
     }
 
-    private Ride getRideById(UUID rideId) {
+    private Ride getRideEntity(UUID rideId) {
 
-        return rideRepository.findById(rideId)
+        return rideRepository
+                .findById(rideId)
                 .orElseThrow(() ->
                         new IllegalArgumentException(
                                 "Ride not found: " + rideId
@@ -142,7 +148,7 @@ public class RideServiceImpl implements RideService {
 
     private void validateRideAccess(
             Ride ride,
-            UUID userId) {
+            Long userId) {
 
         boolean isRider =
                 ride.getRiderId().equals(userId);
@@ -158,45 +164,27 @@ public class RideServiceImpl implements RideService {
         }
     }
 
-    private void validateRiderOwnership(
-            Ride ride,
-            UUID riderId) {
+    private boolean isCancellationAllowed(
+            RideStatus status) {
 
-        if (!ride.getRiderId().equals(riderId)) {
-            throw new SecurityException(
-                    "You are not authorized to cancel this ride"
-            );
-        }
-    }
-
-    private void validateCancellation(Ride ride) {
-
-        RideStatus status = ride.getStatus();
-
-        if (status != RideStatus.REQUESTED
-                && status != RideStatus.SEARCHING_DRIVER
-                && status != RideStatus.DRIVER_ASSIGNED
-                && status != RideStatus.DRIVER_ARRIVING) {
-
-            throw new IllegalStateException(
-                    "Ride cannot be cancelled in status: "
-                            + status
-            );
-        }
+        return status == RideStatus.REQUESTED
+                || status == RideStatus.SEARCHING_DRIVER
+                || status == RideStatus.DRIVER_ASSIGNED
+                || status == RideStatus.DRIVER_ARRIVING;
     }
 
     private void saveStatusHistory(
             Ride ride,
+            Long changedBy,
             RideStatus status,
-            UUID changedBy,
             String reason) {
 
         RideStatusHistory history =
                 new RideStatusHistory();
 
         history.setRideId(ride.getRideId());
-        history.setStatus(status);
         history.setChangedBy(changedBy);
+        history.setStatus(status);
         history.setReason(reason);
 
         rideStatusHistoryRepository.save(history);
@@ -204,30 +192,30 @@ public class RideServiceImpl implements RideService {
 
     private RideResponse mapToResponse(Ride ride) {
 
-        return new RideResponse(
-                ride.getRideId(),
-                ride.getRiderId(),
-                ride.getDriverId(),
-                ride.getStatus(),
-                ride.getPickupLatitude(),
-                ride.getPickupLongitude(),
-                ride.getDropoffLatitude(),
-                ride.getDropoffLongitude(),
-                ride.getCreatedAt(),
-                ride.getUpdatedAt()
-        );
+        return RideResponse.builder()
+                .rideId(ride.getRideId())
+                .riderId(ride.getRiderId())
+                .driverId(ride.getDriverId())
+                .status(ride.getStatus())
+                .pickupLatitude(ride.getPickupLatitude())
+                .pickupLongitude(ride.getPickupLongitude())
+                .dropoffLatitude(ride.getDropoffLatitude())
+                .dropoffLongitude(ride.getDropoffLongitude())
+                .createdAt(ride.getCreatedAt())
+                .updatedAt(ride.getUpdatedAt())
+                .build();
     }
 
     private RideStatusHistoryResponse mapToHistoryResponse(
             RideStatusHistory history) {
 
-        return new RideStatusHistoryResponse(
-                history.getHistoryId(),
-                history.getRideId(),
-                history.getStatus(),
-                history.getChangedAt(),
-                history.getChangedBy(),
-                history.getReason()
-        );
+        return RideStatusHistoryResponse.builder()
+                .historyId(history.getHistoryId())
+                .rideId(history.getRideId())
+                .changedBy(history.getChangedBy())
+                .status(history.getStatus())
+                .reason(history.getReason())
+                .changedAt(history.getChangedAt())
+                .build();
     }
 }

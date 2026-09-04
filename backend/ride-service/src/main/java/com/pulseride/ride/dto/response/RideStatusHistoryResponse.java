@@ -1,26 +1,26 @@
-package com.pulseride.ride.dto.response;
+package com.pulseride.ride.dto;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 import com.pulseride.ride.entity.RideStatus;
 
-import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 
 @Getter
-@AllArgsConstructor
+@Builder
 public class RideStatusHistoryResponse {
 
     private UUID historyId;
 
     private UUID rideId;
 
+    private Long changedBy;
+
     private RideStatus status;
 
-    private LocalDateTime changedAt;
-
-    private UUID changedBy;
-
     private String reason;
+
+    private LocalDateTime changedAt;
 }

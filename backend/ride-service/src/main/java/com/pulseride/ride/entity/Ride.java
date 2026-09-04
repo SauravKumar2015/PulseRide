@@ -28,22 +28,14 @@ public class Ride {
     @Column(name = "ride_id", nullable = false, updatable = false)
     private UUID rideId;
 
-    /**
-     * User who requested the ride.
-     * This references the user identity owned by Auth/User Service.
-     */
-    @Column(name = "rider_id", nullable = false, updatable = false)
-    private UUID riderId;
+    @Column(name = "rider_id", nullable = false)
+    private Long riderId;
 
-    /**
-     * Driver assigned to this ride.
-     * Nullable until a driver is assigned.
-     */
     @Column(name = "driver_id")
-    private UUID driverId;
+    private Long driverId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 30)
+    @Column(name = "status", nullable = false)
     private RideStatus status;
 
     @Column(name = "pickup_latitude", nullable = false, precision = 10, scale = 7)
@@ -71,14 +63,14 @@ public class Ride {
             rideId = UUID.randomUUID();
         }
 
-        if (status == null) {
-            status = RideStatus.REQUESTED;
-        }
-
         LocalDateTime now = LocalDateTime.now();
 
         createdAt = now;
         updatedAt = now;
+
+        if (status == null) {
+            status = RideStatus.REQUESTED;
+        }
     }
 
     @PreUpdate

@@ -13,13 +13,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.pulseride.ride.dto.request.CancelRideRequest;
-import com.pulseride.ride.dto.request.CreateRideRequest;
-import com.pulseride.ride.dto.response.RideResponse;
-import com.pulseride.ride.dto.response.RideStatusHistoryResponse;
+import jakarta.validation.Valid;
+
+import com.pulseride.ride.dto.CancelRideRequest;
+import com.pulseride.ride.dto.CreateRideRequest;
+import com.pulseride.ride.dto.RideResponse;
+import com.pulseride.ride.dto.RideStatusHistoryResponse;
 import com.pulseride.ride.service.RideService;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -29,58 +30,48 @@ public class RideController {
 
     private final RideService rideService;
 
-    /**
-     * Create a new ride request.
-     *
-     * Authorization:
-     * USER role
-     */
     @PostMapping
     public ResponseEntity<RideResponse> createRide(
             @Valid @RequestBody CreateRideRequest request,
             Authentication authentication) {
 
-        UUID riderId = getAuthenticatedUserId(authentication);
+        Long riderId =
+                getAuthenticatedUserId(authentication);
 
         RideResponse response =
-                rideService.createRide(riderId, request);
+                rideService.createRide(
+                        riderId,
+                        request
+                );
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
     }
 
-    /**
-     * Get a specific ride.
-     *
-     * The authenticated user must be either:
-     * - the rider who created the ride
-     * - the driver assigned to the ride
-     */
     @GetMapping("/{rideId}")
     public ResponseEntity<RideResponse> getRide(
             @PathVariable UUID rideId,
             Authentication authentication) {
 
-        UUID userId = getAuthenticatedUserId(authentication);
+        Long userId =
+                getAuthenticatedUserId(authentication);
 
         RideResponse response =
-                rideService.getRide(rideId, userId);
+                rideService.getRide(
+                        rideId,
+                        userId
+                );
 
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Get ride history of the authenticated rider.
-     *
-     * Authorization:
-     * USER role
-     */
     @GetMapping("/history")
     public ResponseEntity<List<RideResponse>> getRideHistory(
             Authentication authentication) {
 
-        UUID riderId = getAuthenticatedUserId(authentication);
+        Long riderId =
+                getAuthenticatedUserId(authentication);
 
         List<RideResponse> rides =
                 rideService.getRideHistory(riderId);
@@ -88,11 +79,6 @@ public class RideController {
         return ResponseEntity.ok(rides);
     }
 
-    /**
-     * Cancel an existing ride.
-     *
-     * The authenticated user must own the ride.
-     */
     @PostMapping("/{rideId}/cancel")
     public ResponseEntity<RideResponse> cancelRide(
             @PathVariable UUID rideId,
@@ -100,7 +86,8 @@ public class RideController {
             CancelRideRequest request,
             Authentication authentication) {
 
-        UUID riderId = getAuthenticatedUserId(authentication);
+        Long riderId =
+                getAuthenticatedUserId(authentication);
 
         RideResponse response =
                 rideService.cancelRide(
@@ -112,18 +99,14 @@ public class RideController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Get complete status history of a ride.
-     *
-     * The authenticated user must have access to the ride.
-     */
     @GetMapping("/{rideId}/history")
     public ResponseEntity<List<RideStatusHistoryResponse>>
-            getRideStatusHistory(
-                    @PathVariable UUID rideId,
-                    Authentication authentication) {
+    getRideStatusHistory(
+            @PathVariable UUID rideId,
+            Authentication authentication) {
 
-        UUID userId = getAuthenticatedUserId(authentication);
+        Long userId =
+                getAuthenticatedUserId(authentication);
 
         List<RideStatusHistoryResponse> history =
                 rideService.getRideStatusHistory(
@@ -134,12 +117,9 @@ public class RideController {
         return ResponseEntity.ok(history);
     }
 
-    /**
-     * Extract the authenticated user's UUID from JWT subject.
-     */
-    private UUID getAuthenticatedUserId(
+    private Long getAuthenticatedUserId(
             Authentication authentication) {
 
-        return UUID.fromString(authentication.getName());
+        return Long.valueOf(authentication.getName());
     }
 }

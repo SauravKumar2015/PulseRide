@@ -1,4 +1,4 @@
-package com.pulseride.ride.dto.response;
+package com.pulseride.ride.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -6,18 +6,18 @@ import java.util.UUID;
 
 import com.pulseride.ride.entity.RideStatus;
 
-import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 
 @Getter
-@AllArgsConstructor
+@Builder
 public class RideResponse {
 
     private UUID rideId;
 
-    private UUID riderId;
+    private Long riderId;
 
-    private UUID driverId;
+    private Long driverId;
 
     private RideStatus status;
 

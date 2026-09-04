@@ -1,33 +1,31 @@
 package com.pulseride.ride.config;
 
-import java.nio.charset.StandardCharsets;
-
-import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
-@EnableMethodSecurity
 public class SecurityConfig {
 
     private final String jwtSecret;
+
     private final String jwtIssuer;
 
     public SecurityConfig(
             @Value("${jwt.secret}") String jwtSecret,
             @Value("${jwt.issuer}") String jwtIssuer) {
+
         this.jwtSecret = jwtSecret;
         this.jwtIssuer = jwtIssuer;
     }
@@ -49,11 +47,14 @@ public class SecurityConfig {
                 )
 
                 .authorizeHttpRequests(auth -> auth
+
                         .requestMatchers(
                                 "/actuator/health",
                                 "/actuator/info"
                         ).permitAll()
-                        .anyRequest().authenticated()
+
+                        .anyRequest()
+                        .authenticated()
                 )
 
                 .oauth2ResourceServer(oauth2 ->
@@ -70,32 +71,51 @@ public class SecurityConfig {
     @Bean
     public JwtDecoder jwtDecoder() {
 
-        SecretKey secretKey = new SecretKeySpec(
-                jwtSecret.getBytes(StandardCharsets.UTF_8),
-                "HmacSHA256"
-        );
+        SecretKeySpec secretKey =
+                new SecretKeySpec(
+                        jwtSecret.getBytes(),
+                        "HmacSHA256"
+                );
 
         NimbusJwtDecoder decoder =
-                NimbusJwtDecoder.withSecretKey(secretKey)
-                        .macAlgorithm(MacAlgorithm.HS256)
+                NimbusJwtDecoder
+                        .withSecretKey(secretKey)
                         .build();
 
         decoder.setJwtValidator(
-                JwtValidators.createDefaultWithIssuer(jwtIssuer)
+                JwtValidators.createDefaultWithIssuer(
+                        jwtIssuer
+                )
         );
 
         return decoder;
     }
 
     @Bean
-    public JwtAuthenticationConverter jwtAuthenticationConverter() {
+    public JwtAuthenticationConverter
+    jwtAuthenticationConverter() {
+
+        JwtGrantedAuthoritiesConverter
+                authoritiesConverter =
+                new JwtGrantedAuthoritiesConverter();
+
+        authoritiesConverter.setAuthoritiesClaimName(
+                "roles"
+        );
+
+        authoritiesConverter.setAuthorityPrefix(
+                "ROLE_"
+        );
 
         JwtAuthenticationConverter converter =
                 new JwtAuthenticationConverter();
+
+        converter.setJwtGrantedAuthoritiesConverter(
+                authoritiesConverter
+        );
 
         converter.setPrincipalClaimName("sub");
 
         return converter;
     }
 }
-

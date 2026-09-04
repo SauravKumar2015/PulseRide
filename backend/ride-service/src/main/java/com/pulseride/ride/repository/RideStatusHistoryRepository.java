@@ -10,7 +10,5 @@ import com.pulseride.ride.entity.RideStatusHistory;
 public interface RideStatusHistoryRepository
         extends JpaRepository<RideStatusHistory, UUID> {
 
-    List<RideStatusHistory> findByRideIdOrderByChangedAtAsc(
-            UUID rideId
-    );
+    List<RideStatusHistory> findByRideIdOrderByChangedAtAsc(UUID rideId);
 }

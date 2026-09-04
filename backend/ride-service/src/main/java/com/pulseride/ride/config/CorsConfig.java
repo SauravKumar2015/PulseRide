@@ -15,12 +15,15 @@ public class CorsConfig {
     private final String allowedOrigins;
 
     public CorsConfig(
-            @Value("${cors.allowed-origins}") String allowedOrigins) {
+            @Value("${cors.allowed-origins}")
+            String allowedOrigins) {
+
         this.allowedOrigins = allowedOrigins;
     }
 
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource
+    corsConfigurationSource() {
 
         CorsConfiguration configuration =
                 new CorsConfiguration();
@@ -62,4 +65,3 @@ public class CorsConfig {
         return source;
     }
 }
-

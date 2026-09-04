@@ -3,35 +3,35 @@ package com.pulseride.ride.service;
 import java.util.List;
 import java.util.UUID;
 
-import com.pulseride.ride.dto.request.CancelRideRequest;
-import com.pulseride.ride.dto.request.CreateRideRequest;
-import com.pulseride.ride.dto.response.RideResponse;
-import com.pulseride.ride.dto.response.RideStatusHistoryResponse;
+import com.pulseride.ride.dto.CancelRideRequest;
+import com.pulseride.ride.dto.CreateRideRequest;
+import com.pulseride.ride.dto.RideResponse;
+import com.pulseride.ride.dto.RideStatusHistoryResponse;
 
 public interface RideService {
 
     RideResponse createRide(
-            UUID riderId,
+            Long riderId,
             CreateRideRequest request
     );
 
     RideResponse getRide(
             UUID rideId,
-            UUID userId
+            Long userId
     );
 
     List<RideResponse> getRideHistory(
-            UUID riderId
+            Long riderId
     );
 
     RideResponse cancelRide(
             UUID rideId,
-            UUID riderId,
+            Long riderId,
             CancelRideRequest request
     );
 
     List<RideStatusHistoryResponse> getRideStatusHistory(
             UUID rideId,
-            UUID userId
+            Long userId
     );
 }
