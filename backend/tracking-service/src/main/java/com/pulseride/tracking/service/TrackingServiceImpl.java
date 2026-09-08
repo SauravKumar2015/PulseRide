@@ -1,6 +1,8 @@
 package com.pulseride.tracking.service;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,7 +11,10 @@ import com.pulseride.tracking.client.DriverServiceClient;
 import com.pulseride.tracking.dto.request.DriverLocationRequest;
 import com.pulseride.tracking.dto.response.DriverLocationResponse;
 import com.pulseride.tracking.dto.response.DriverProfileResponse;
+import com.pulseride.tracking.dto.response.LocationHistoryResponse;
+import com.pulseride.tracking.dto.response.RideTrackingResponse;
 import com.pulseride.tracking.entity.DriverLocation;
+import com.pulseride.tracking.exception.LocationNotFoundException;
 import com.pulseride.tracking.repository.DriverLocationRepository;
 
 @Service
@@ -32,9 +37,6 @@ public class TrackingServiceImpl implements TrackingService {
             Long driverId,
             DriverLocationRequest request) {
 
-        /*
-         * Verify that the authenticated user has a driver profile.
-         */
         DriverProfileResponse driverProfile =
                 driverServiceClient.createDriverProfile(driverId);
 
@@ -44,9 +46,6 @@ public class TrackingServiceImpl implements TrackingService {
             );
         }
 
-        /*
-         * Create a new location record.
-         */
         DriverLocation location = DriverLocation.builder()
                 .driverId(driverId)
                 .rideId(request.getRideId())
@@ -55,21 +54,81 @@ public class TrackingServiceImpl implements TrackingService {
                 .recordedAt(Instant.now())
                 .build();
 
-        /*
-         * Save location in PostgreSQL.
-         */
         DriverLocation saved =
                 driverLocationRepository.save(location);
 
-        /*
-         * Convert entity to response DTO.
-         */
+        return toDriverLocationResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DriverLocationResponse getLatestDriverLocation(
+            Long driverId) {
+
+        DriverLocation location =
+                driverLocationRepository
+                        .findTopByDriverIdOrderByRecordedAtDesc(driverId)
+                        .orElseThrow(
+                                () -> new LocationNotFoundException(
+                                        "No location found for driver: "
+                                                + driverId
+                                )
+                        );
+
+        return toDriverLocationResponse(location);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RideTrackingResponse getLatestRideLocation(
+            UUID rideId) {
+
+        DriverLocation location =
+                driverLocationRepository
+                        .findTopByRideIdOrderByRecordedAtDesc(rideId)
+                        .orElseThrow(
+                                () -> new LocationNotFoundException(
+                                        "No location found for ride: "
+                                                + rideId
+                                )
+                        );
+
+        return RideTrackingResponse.builder()
+                .rideId(location.getRideId())
+                .driverId(location.getDriverId())
+                .latitude(location.getLatitude())
+                .longitude(location.getLongitude())
+                .recordedAt(location.getRecordedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LocationHistoryResponse> getRideLocationHistory(
+            UUID rideId) {
+
+        return driverLocationRepository
+                .findByRideIdOrderByRecordedAtAsc(rideId)
+                .stream()
+                .map(location ->
+                        LocationHistoryResponse.builder()
+                                .latitude(location.getLatitude())
+                                .longitude(location.getLongitude())
+                                .recordedAt(location.getRecordedAt())
+                                .build()
+                )
+                .toList();
+    }
+
+    private DriverLocationResponse toDriverLocationResponse(
+            DriverLocation location) {
+
         return DriverLocationResponse.builder()
-                .driverId(saved.getDriverId())
-                .rideId(saved.getRideId())
-                .latitude(saved.getLatitude())
-                .longitude(saved.getLongitude())
-                .recordedAt(saved.getRecordedAt())
+                .driverId(location.getDriverId())
+                .rideId(location.getRideId())
+                .latitude(location.getLatitude())
+                .longitude(location.getLongitude())
+                .recordedAt(location.getRecordedAt())
                 .build();
     }
 }
