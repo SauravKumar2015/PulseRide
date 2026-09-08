@@ -2,117 +2,174 @@
 
 ## Project identity
 
-You are working on PulseRide, a distributed event-driven ride-hailing platform.
+PulseRide is a distributed, event-driven ride-hailing platform built as a multi-service Spring Boot architecture. The current implementation is already beyond the initial scaffold: the auth and driver services are working and the project is now transitioning from foundational service implementation into the ride, matching, pricing, payment, Kafka, and gateway layers.
 
-## Non-negotiable architecture
+## Current implementation status
 
-- Java 17 or 21
-- Spring Boot 3.x
+### Completed and working
+
+#### Auth Service
+
+Location: `backend/auth-service`
+
+Implemented and validated:
+- User registration at `POST /auth/register`
+- User login at `POST /auth/login`
+- Access-token and refresh-token issuance
+- Refresh-token rotation at `POST /auth/refresh`
+- Authenticated logout at `POST /auth/logout`
+- BCrypt password hashing
+- JWT signing with HMAC HS256
+- JWT claims include issuer, subject/user ID, issued-at, expiry, email, and role
+- JWT validation with issuer checking
+- Role normalization and email normalization
+- Duplicate-email and invalid-credential handling
+- Centralized error responses
+- Driver-profile creation flow for newly registered drivers
+- Unit tests for core auth flows and failure cases
+
+#### Driver Service
+
+Location: `backend/driver-service`
+
+Implemented and validated:
+- Driver profile creation or lookup at `POST /drivers/profile`
+- Current profile fetch at `GET /drivers/me`
+- Driver location update at `POST /drivers/location`
+- Driver availability update at `PATCH /drivers/status`
+- Vehicle type update at `PATCH /drivers/vehicle-type`
+- Internal profile creation endpoint at `POST /internal/drivers/profile`
+- Server-side driver status rules
+- Postgres-backed JPA persistence for drivers
+- Location validation using `BigDecimal`
+- Security rules enforcing `DRIVER` access on driver endpoints
+- Unit tests covering transitions, ownership checks, location updates, and auth restrictions
+
+These two services are the first completed foundation and are expected to remain the base from which future services are extended.
+
+## Architecture status
+
+### Completed foundation
+
+- Java 17
+- Spring Boot 3.5.5 in auth and driver services
+- Spring Web MVC / REST APIs
+- Spring Data JPA and Hibernate
+- PostgreSQL for service-owned transactional data
 - Spring Security
-- Spring Cloud Gateway
-- PostgreSQL for transactional service-owned data
-- Redis Stack for geospatial/low-latency state
-- Kafka for asynchronous domain events
-- React + Vite + Tailwind for frontend
+- OAuth2 resource-server JWT validation
+- Nimbus JWT encoder/decoder
+- BCrypt password hashing
 - Docker Compose for local infrastructure
 
-## Coding principles
+### Planned / not yet implemented
+
+The following are still in the roadmap and are not production-complete yet:
+- Spring Cloud Gateway
+- Kafka domain events and consumer patterns
+- Redis geospatial driver state and matching support
+- Ride service lifecycle management
+- Matching service assignment logic
+- Pricing service surge/fare logic
+- Payment service provider integration and webhooks
+- Notification service
+- Admin dashboard and governance tooling
+- Observability stack (OpenTelemetry, Prometheus, Grafana)
+
+## Service ownership and boundaries
+
+This project is intentionally structured around service ownership:
+
+- Auth/User Service owns user identity, password hashes, roles, permissions, and account data.
+- Driver Service owns driver profile, status, vehicle metadata, and driver location updates.
+- Tracking Service owns live GPS and driver availability state.
+- Ride Service owns ride lifecycle, pickup/dropoff, assignment state, and cancellations.
+- Matching Service owns candidate discovery, scoring, and assignment workflow.
+- Pricing Service owns fare rules and surge rules.
+- Payment Service owns payment orders, provider references, verification, refunds, and webhook event records.
+- Notification Service consumes events and sends user updates.
+
+Important rule: do not access another service's database directly. Keep boundaries strict.
+
+## Coding principles for future work
 
 1. Follow service ownership. Never directly access another service's database.
-2. Prefer DTOs at API boundaries.
-3. Validate all external input.
-4. Use immutable event envelopes where practical.
-5. Every Kafka event must contain `eventId`, `eventType`, `version`, `occurredAt`, `correlationId`, producer, aggregate type/id, and payload.
-6. Kafka consumers must be idempotent.
-7. Use transactional outbox for important DB-to-Kafka consistency.
-8. Never use floating-point numbers for money.
-9. Never store card data/CVV/UPI PIN.
-10. Never trust role/user ID values sent by the frontend.
-11. Enforce ownership server-side.
-12. Sensitive admin operations require explicit permissions and audit logging.
-13. Use global exception handling and consistent error DTOs.
-14. Use structured logging and correlation IDs.
-15. Use bounded retries and DLQs; never infinite retry loops.
-16. Use timeouts and circuit breakers for synchronous service calls.
-17. Do not invent APIs or fields not defined by the project contracts.
-18. Preserve the existing architecture unless a requested change requires a migration.
+2. Prefer DTOs at REST boundaries and validate all external input.
+3. Derive authenticated identity from the JWT; never trust frontend-supplied user IDs or roles.
+4. Use constructor injection and Jakarta namespaces.
+5. Use `BigDecimal` or integer minor units for money.
+6. Keep provider-specific payment code inside the payment-service adapter layer.
+7. Use idempotent Kafka consumers and safe retry patterns.
+8. Use transactional outbox for important DB-to-Kafka writes where applicable.
+9. Do not invent APIs, fields, or events not defined by the contracts.
+10. Keep authorization checks server-side and consistent with RBAC.
+11. Add failure-path testing for security-sensitive features.
+12. Preserve the architectural boundaries unless a migration is required.
 
-## Code generation requirements
+## What is already done versus what remains
 
-Before generating code:
-- identify the service being modified
-- list relevant entities/DTOs/events
-- identify database ownership
-- identify required Kafka topic
-- identify authorization permission
-- identify idempotency requirement
-- identify failure scenarios
+### Done
 
-When generating code:
-- provide complete compilable classes where requested
-- include package names
-- include imports
-- avoid placeholder methods unless explicitly marked
-- match Spring Boot 3 / Jakarta namespaces
-- use constructor injection
-- use configuration properties/environment variables for secrets
-- include validation
-- include tests for business-critical logic
+- Auth flow with registration, login, refresh, and logout
+- Driver profile and status management
+- JWT authentication + role enforcement
+- Validation and error handling patterns
+- Basic driver ownership logic and auth checks
+- Service-level persistence and tests for the current features
 
-## Payment-specific rules
+### Still needed
 
-Payment provider SDK code belongs only in the Payment Service adapter layer.
+- Gateway routing and centralized security policy
+- Full ride lifecycle and ride-state machine
+- Matching logic and driver assignment workflow
+- Pricing and surge calculation
+- Payment gateway integration and webhook verification
+- Kafka event design and consumer wiring
+- Redis geospatial tracking for matching and driver discovery
+- Admin functions and audit trajectories
+- Observability, resilience, and production-hardening
 
-Business services must depend on `PaymentGateway`, not provider-specific classes.
+## Recommended next work order
 
-Payment success must be verified server-side.
+1. Complete the driver ride retrieval contract and replace current placeholder `List<Object>` behavior with typed DTOs.
+2. Add controller and API tests for auth and driver endpoints, especially validation and authorization failures.
+3. Introduce integration tests with PostgreSQL/Testcontainers for persistence-heavy paths.
+4. Harden internal service-to-service communication and define a consistent internal error contract.
+5. Add the API gateway and centralized authentication/routing behavior.
+6. Implement the ride service state machine and connect it to driver availability.
+7. Add matching service assignment, driver scoring, and idempotent assignment logic.
+8. Implement pricing and surge calculations in the pricing service.
+9. Implement payment service flows with provider adapter, verification, idempotency, and refund handling.
+10. Add Kafka events, transactional outbox, retry/DLQ handling, and idempotent consumers.
+11. Add Redis geospatial and low-latency tracking when the matching design is ready.
+12. Add admin dashboard, audit logging, and production-readiness improvements.
+13. Add OpenTelemetry, Prometheus, Grafana, and distributed tracing.
 
-Webhook processing must be signature-verified and idempotent.
+## MVP stopping point
 
-## RBAC-specific rules
+The project is already in a strong early portfolio state. For a solid MVP, the recommended stopping point is after Phase 7 of the roadmap if time is limited. That gives a working foundation with auth, driver, ride, matching, pricing, payment, and admin capabilities, while keeping the architecture realistic and demonstrable.
 
-Use permissions such as:
+## Rules for future AI agents
+
+Use this context when changing PulseRide:
 
 ```text
-USER_READ
-DRIVER_SUSPEND
-RIDE_READ
-RIDE_CANCEL
-PAYMENT_READ
-PAYMENT_REFUND
-PRICING_UPDATE
-ANALYTICS_READ
-AUDIT_READ
+You are modifying the PulseRide ride-hailing platform. First identify the owning service, existing DTOs/entities/repositories, API contract, authorization rule, database ownership, event or idempotency requirements, and failure scenarios. Preserve the established Spring Boot 3.x, Java 17, PostgreSQL/JPA, Spring Security, JWT, validation, Lombok, and Maven conventions. Keep changes minimal, compilable, and aligned with current service boundaries. Do not access another service's database, trust frontend identity or payment state, invent API fields, or expose secrets. Add or update tests around the changed behavior, especially validation and authorization flows. Follow the completed architecture work in the auth and driver services, and build the remaining platform features in the documented order.
 ```
 
-Do not scatter hard-coded role strings throughout the application.
+## Source references
 
-## Admin-specific rules
+- `backend/docs/ARCHITECTURE.md`
+- `backend/docs/IMPLEMENTATION_ROADMAP.md`
+- `backend/docs/AI_IMPLEMENTATION_HANDOFF.md`
+- `backend/docs/SERVICE_BOUNDARIES.md`
+- `backend/docs/FEATURE_BACKLOG.md`
+- `backend/docs/API_CONTRACTS.md`
+- `backend/docs/DATA_MODEL.md`
+- `backend/docs/SECURITY.md`
+- `backend/docs/RBAC.md`
+- `backend/docs/FAILURE_HANDLING.md`
 
-Admin UI is a control plane. Every mutation:
-- requires permission
-- validates input
-- records an audit log
-- returns an explicit result
+## Final working summary
 
-Do not provide a generic "change anything" endpoint.
-
-## Frontend rules
-
-- Use role/permission-aware route guards for UX only.
-- Backend remains the source of truth for authorization.
-- Use WebSockets for live ride/location updates.
-- Never expose provider secret keys.
-- Never trust frontend payment success state without backend verification.
-
-## Testing expectations
-
-For each feature include:
-- unit tests
-- controller/API tests where appropriate
-- Kafka consumer tests
-- idempotency tests
-- authorization tests
-- failure-path tests
-
-For payment and RBAC, security and negative tests are mandatory.
+The codebase has already delivered the working baseline for identity and driver operations. The project is now at the stage where the next major value is in building the ride, matching, pricing, payment, Kafka, and gateway layers according to the documented roadmap. Future implementation should remain disciplined, boundary-aware, and test-first to preserve the architecture and avoid breaking the service ownership model.

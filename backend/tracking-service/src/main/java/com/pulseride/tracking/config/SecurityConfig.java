@@ -1,8 +1,130 @@
 package com.pulseride.tracking.config;
-import java.nio.charset.StandardCharsets; import javax.crypto.spec.SecretKeySpec; import org.springframework.beans.factory.annotation.Value; import org.springframework.context.annotation.*; import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity; import org.springframework.security.config.annotation.web.builders.HttpSecurity; import org.springframework.security.config.http.SessionCreationPolicy; import org.springframework.security.oauth2.jwt.*; import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter; import org.springframework.security.web.SecurityFilterChain;
-@Configuration @EnableMethodSecurity public class SecurityConfig {
- @Bean SecretKeySpec jwtSecretKey(@Value("${jwt.secret}") String secret) { return new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"); }
- @Bean JwtDecoder jwtDecoder(SecretKeySpec key, @Value("${jwt.issuer}") String issuer) { var d=NimbusJwtDecoder.withSecretKey(key).build(); d.setJwtValidator(JwtValidators.createDefaultWithIssuer(issuer)); return d; }
- @Bean JwtAuthenticationConverter jwtAuthenticationConverter() { var c=new JwtAuthenticationConverter(); c.setJwtGrantedAuthoritiesConverter(j -> java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_"+j.getClaimAsString("role")))); return c; }
- @Bean SecurityFilterChain filter(HttpSecurity h, JwtAuthenticationConverter c) throws Exception { return h.csrf(x->x.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS)).authorizeHttpRequests(a->a.anyRequest().authenticated()).oauth2ResourceServer(o->o.jwt(j->j.jwtAuthenticationConverter(c))).build(); }
+
+import java.nio.charset.StandardCharsets;
+import java.util.Collection;
+import java.util.List;
+
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+@Configuration
+@EnableMethodSecurity
+public class SecurityConfig {
+
+    @Value("${jwt.secret}")
+    private String jwtSecret;
+
+    @Value("${jwt.issuer}")
+    private String jwtIssuer;
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http) throws Exception {
+
+        http
+                .csrf(csrf -> csrf.disable())
+
+                .cors(cors -> {
+                })
+
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        )
+                )
+
+                .authorizeHttpRequests(auth -> auth
+
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/actuator/info"
+                        ).permitAll()
+
+                        .anyRequest()
+                        .authenticated()
+                )
+
+                .oauth2ResourceServer(oauth2 ->
+                        oauth2.jwt(jwt ->
+                                jwt.jwtAuthenticationConverter(
+                                        jwtAuthenticationConverter()
+                                )
+                        )
+                )
+
+                .formLogin(form -> form.disable())
+                .httpBasic(basic -> basic.disable())
+                .logout(logout -> logout.disable());
+
+        return http.build();
+    }
+
+    @Bean
+    public JwtDecoder jwtDecoder() {
+
+        SecretKey key = new SecretKeySpec(
+                jwtSecret.getBytes(StandardCharsets.UTF_8),
+                "HmacSHA256"
+        );
+
+        NimbusJwtDecoder decoder =
+                NimbusJwtDecoder.withSecretKey(key)
+                        .build();
+
+        decoder.setJwtValidator(
+                JwtValidators.createDefaultWithIssuer(jwtIssuer)
+        );
+
+        return decoder;
+    }
+
+    private Converter<Jwt, ? extends AbstractAuthenticationToken>
+    jwtAuthenticationConverter() {
+
+        return jwt -> {
+
+            Collection<GrantedAuthority> authorities =
+                    extractAuthorities(jwt);
+
+            return new JwtAuthenticationToken(
+                    jwt,
+                    authorities,
+                    jwt.getSubject()
+            );
+        };
+    }
+
+    private Collection<GrantedAuthority> extractAuthorities(
+            Jwt jwt) {
+
+        String role = jwt.getClaimAsString("role");
+
+        if (role == null || role.isBlank()) {
+            return List.of();
+        }
+
+        return List.of(
+                new SimpleGrantedAuthority(
+                        "ROLE_" + role.toUpperCase()
+                )
+        );
+    }
 }

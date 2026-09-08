@@ -1,14 +1,35 @@
 package com.pulseride.tracking.controller;
-import org.springframework.security.access.prepost.PreAuthorize;
+
+import com.pulseride.tracking.dto.request.DriverLocationRequest;
+import com.pulseride.tracking.dto.response.DriverLocationResponse;
+import com.pulseride.tracking.service.TrackingService;
+
+import jakarta.validation.Valid;
+
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import com.pulseride.tracking.dto.*;
-import com.pulseride.tracking.service.TrackingService;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-@RestController @RequestMapping("/tracking") @PreAuthorize("hasRole('DRIVER')") @RequiredArgsConstructor
+
+@RestController
+@RequestMapping("/tracking")
 public class TrackingController {
- private final TrackingService service;
- @PostMapping("/location") public LocationResponse update(@Valid @RequestBody LocationRequest request, Authentication auth) { return service.update(auth.getName(), request); }
- @GetMapping("/location") public LocationResponse get(Authentication auth) { return service.get(auth.getName()); }
+
+    private final TrackingService trackingService;
+
+    public TrackingController(TrackingService trackingService) {
+        this.trackingService = trackingService;
+    }
+
+    @PostMapping("/location")
+    public DriverLocationResponse updateDriverLocation(
+            Authentication authentication,
+            @Valid @RequestBody DriverLocationRequest request) {
+
+        Long driverId =
+                Long.valueOf(authentication.getName());
+
+        return trackingService.updateDriverLocation(
+                driverId,
+                request
+        );
+    }
 }
