@@ -1,29 +1,11 @@
 package com.pulseride.auth.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-
 import com.pulseride.auth.dto.LoginRequest;
 import com.pulseride.auth.dto.LogoutRequest;
 import com.pulseride.auth.dto.RefreshTokenRequest;
 import com.pulseride.auth.dto.RegisterRequest;
 import com.pulseride.auth.dto.TokenResponse;
+import com.pulseride.auth.dto.UserResponse;
 import com.pulseride.auth.entity.RefreshToken;
 import com.pulseride.auth.entity.User;
 import com.pulseride.auth.repository.RefreshTokenRepository;
@@ -31,177 +13,390 @@ import com.pulseride.auth.repository.UserRepository;
 import com.pulseride.auth.security.JwtService;
 import com.pulseride.auth.security.RefreshTokenService;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+import java.util.Optional;
+
 @ExtendWith(MockitoExtension.class)
 class UserServiceImplTest {
 
     @Mock
-    UserRepository userRepository;
+    private UserRepository userRepository;
 
     @Mock
-    RefreshTokenRepository refreshTokenRepository;
+    private RefreshTokenRepository refreshTokenRepository;
 
     @Mock
-    JwtService jwtService;
+    private PasswordEncoder passwordEncoder;
 
     @Mock
-    RefreshTokenService refreshTokenService;
+    private JwtService jwtService;
 
-    // NEW
     @Mock
-    DriverClient driverClient;
+    private RefreshTokenService refreshTokenService;
 
-    private final PasswordEncoder passwordEncoder =
-            new BCryptPasswordEncoder();
+    @Mock
+    private DriverClient driverClient;
 
-    private UserServiceImpl service;
+    @Mock
+    private UserClient userClient;
+
+    @InjectMocks
+    private UserServiceImpl userService;
+
+    private User user;
 
     @BeforeEach
     void setUp() {
 
-        service = new UserServiceImpl(
-                userRepository,
-                refreshTokenRepository,
-                passwordEncoder,
-                jwtService,
-                refreshTokenService,
-                driverClient
-        );
+        user = User.builder()
+                .id(1L)
+                .name("Saurav Kumar")
+                .email("saurav@example.com")
+                .password("encoded-password")
+                .role("USER")
+                .build();
     }
 
     @Test
-    void registerHashesPasswordAndDoesNotReturnIt() {
+    void register_shouldCreateUserSuccessfully() {
 
         RegisterRequest request = new RegisterRequest();
 
-        request.setName("Sam Rider");
-        request.setEmail("SAM@example.com");
-        request.setPassword("Password1!");
+        request.setName("Saurav Kumar");
+        request.setEmail("saurav@example.com");
+        request.setPassword("Password@123");
         request.setRole("USER");
 
-        User saved = User.builder()
-                .id(1L)
-                .name("Sam Rider")
-                .email("sam@example.com")
-                .password("encoded")
-                .role("PASSENGER")
-                .createdAt(LocalDateTime.now())
-                .build();
-
-        when(userRepository.existsByEmail("sam@example.com"))
+        when(userRepository.existsByEmail("saurav@example.com"))
                 .thenReturn(false);
 
+        when(passwordEncoder.encode("Password@123"))
+                .thenReturn("encoded-password");
+
         when(userRepository.save(any(User.class)))
-                .thenReturn(saved);
+                .thenReturn(user);
 
-        var response = service.register(request);
+        UserResponse response =
+                userService.register(request);
 
-        assertThat(response.getEmail())
-                .isEqualTo("sam@example.com");
-
-        ArgumentCaptor<User> userCaptor =
-                ArgumentCaptor.forClass(User.class);
+        assertNotNull(response);
+        assertEquals(1L, response.getId());
+        assertEquals("Saurav Kumar", response.getName());
+        assertEquals("saurav@example.com", response.getEmail());
+        assertEquals("USER", response.getRole());
 
         verify(userRepository)
-                .save(userCaptor.capture());
+                .save(any(User.class));
 
-        assertThat(
-                passwordEncoder.matches(
-                        "Password1!",
-                        userCaptor.getValue().getPassword()
-                )
-        ).isTrue();
-    }
-
-    @Test
-    void loginUsesGenericFailureForUnknownUser() {
-
-        when(
-                userRepository.findByEmail(
-                        "unknown@example.com"
-                )
-        ).thenReturn(Optional.empty());
-
-        assertThatThrownBy(
-                () -> service.login(
-                        new LoginRequest(
-                                "unknown@example.com",
-                                "Password1!"
-                        )
-                )
-        )
-        .isInstanceOf(BadCredentialsException.class)
-        .hasMessage("Authentication failed");
-    }
-
-    @Test
-    void refreshRevokesOldTokenAndIssuesReplacement() {
-
-        User user = User.builder()
-                .id(1L)
-                .role("PASSENGER")
-                .build();
-
-        RefreshToken stored = new RefreshToken();
-
-        stored.setUser(user);
-        stored.setExpiresAt(
-                LocalDateTime.now().plusDays(1)
-        );
-
-        when(
-                refreshTokenService.findValid("old-token")
-        ).thenReturn(stored);
-
-        when(
-                jwtService.createAccessToken(user)
-        ).thenReturn("access");
-
-        when(
-                jwtService.getAccessTokenExpirationSeconds()
-        ).thenReturn(900L);
-
-        when(
-                refreshTokenService.create(user)
-        ).thenReturn("new-token");
-
-        TokenResponse response =
-                service.refresh(
-                        new RefreshTokenRequest("old-token")
+        verify(userClient)
+                .createUserProfile(
+                        1L,
+                        "Saurav Kumar",
+                        "saurav@example.com",
+                        "USER"
                 );
 
-        assertThat(stored.isRevoked())
-                .isTrue();
-
-        assertThat(response.refreshToken())
-                .isEqualTo("new-token");
-
-        verify(refreshTokenRepository)
-                .save(stored);
+        verify(driverClient, never())
+                .createDriverProfile(anyLong());
     }
 
     @Test
-    void logoutRevokesOnlyTokenOwnedByAuthenticatedUser() {
+    void register_shouldCreateDriverAndUserProfilesForDriver() {
 
-        User user = User.builder()
-                .id(7L)
+        RegisterRequest request = new RegisterRequest();
+
+        request.setName("Gupta");
+        request.setEmail("guptastores123@gmail.com");
+        request.setPassword("Gupta@2000");
+        request.setRole("DRIVER");
+
+        User driver = User.builder()
+                .id(2L)
+                .name("Gupta")
+                .email("guptastores123@gmail.com")
+                .password("encoded-password")
+                .role("DRIVER")
                 .build();
 
-        RefreshToken stored = new RefreshToken();
+        when(userRepository.existsByEmail(
+                "guptastores123@gmail.com"))
+                .thenReturn(false);
 
-        stored.setUser(user);
+        when(passwordEncoder.encode("Gupta@2000"))
+                .thenReturn("encoded-password");
 
-        when(
-                refreshTokenService.findValid(
-                        "refresh-token"
-                )
-        ).thenReturn(stored);
+        when(userRepository.save(any(User.class)))
+                .thenReturn(driver);
 
-        service.logout(
-                new LogoutRequest("refresh-token"),
-                "7"
+        UserResponse response =
+                userService.register(request);
+
+        assertNotNull(response);
+        assertEquals(2L, response.getId());
+        assertEquals("Gupta", response.getName());
+        assertEquals(
+                "guptastores123@gmail.com",
+                response.getEmail()
+        );
+        assertEquals("DRIVER", response.getRole());
+
+        verify(userClient)
+                .createUserProfile(
+                        2L,
+                        "Gupta",
+                        "guptastores123@gmail.com",
+                        "DRIVER"
+                );
+
+        verify(driverClient)
+                .createDriverProfile(2L);
+    }
+
+    @Test
+    void register_shouldFailWhenEmailAlreadyExists() {
+
+        RegisterRequest request = new RegisterRequest();
+
+        request.setName("Saurav Kumar");
+        request.setEmail("saurav@example.com");
+        request.setPassword("Password@123");
+        request.setRole("USER");
+
+        when(userRepository.existsByEmail("saurav@example.com"))
+                .thenReturn(true);
+
+        assertThrows(
+                RuntimeException.class,
+                () -> userService.register(request)
         );
 
-        assertThat(stored.isRevoked())
-                .isTrue();
+        verify(userRepository, never())
+                .save(any(User.class));
+
+        verify(userClient, never())
+                .createUserProfile(
+                        anyLong(),
+                        anyString(),
+                        anyString(),
+                        anyString()
+                );
+
+        verify(driverClient, never())
+                .createDriverProfile(anyLong());
+    }
+
+    @Test
+    void login_shouldReturnTokensSuccessfully() {
+
+        LoginRequest request =
+                new LoginRequest(
+                        "saurav@example.com",
+                        "Password@123"
+                );
+
+        when(userRepository.findByEmail(
+                "saurav@example.com"))
+                .thenReturn(Optional.of(user));
+
+        when(passwordEncoder.matches(
+                "Password@123",
+                "encoded-password"))
+                .thenReturn(true);
+
+        when(jwtService.createAccessToken(user))
+                .thenReturn("access-token");
+
+        when(refreshTokenService.create(user))
+                .thenReturn("refresh-token");
+
+        when(jwtService.getAccessTokenExpirationSeconds())
+                .thenReturn(3600L);
+
+        TokenResponse response =
+                userService.login(request);
+
+        assertNotNull(response);
+
+        assertEquals(
+                "access-token",
+                response.accessToken()
+        );
+
+        assertEquals(
+                "refresh-token",
+                response.refreshToken()
+        );
+
+        assertEquals(
+                "Bearer",
+                response.tokenType()
+        );
+    }
+
+    @Test
+    void login_shouldFailWithWrongPassword() {
+
+        LoginRequest request =
+                new LoginRequest(
+                        "saurav@example.com",
+                        "WrongPassword"
+                );
+
+        when(userRepository.findByEmail(
+                "saurav@example.com"))
+                .thenReturn(Optional.of(user));
+
+        when(passwordEncoder.matches(
+                "WrongPassword",
+                "encoded-password"))
+                .thenReturn(false);
+
+        assertThrows(
+                RuntimeException.class,
+                () -> userService.login(request)
+        );
+
+        verify(jwtService, never())
+                .createAccessToken(any(User.class));
+    }
+
+    @Test
+    void login_shouldFailWhenUserDoesNotExist() {
+
+        LoginRequest request =
+                new LoginRequest(
+                        "unknown@example.com",
+                        "Password@123"
+                );
+
+        when(userRepository.findByEmail(
+                "unknown@example.com"))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                RuntimeException.class,
+                () -> userService.login(request)
+        );
+    }
+
+    @Test
+    void refresh_shouldReturnNewTokens() {
+
+        RefreshToken refreshToken =
+                new RefreshToken();
+
+        refreshToken.setUser(user);
+        refreshToken.setRevoked(false);
+
+        when(refreshTokenService.findValid(
+                "old-refresh-token"))
+                .thenReturn(refreshToken);
+
+        when(jwtService.createAccessToken(user))
+                .thenReturn("new-access-token");
+
+        when(refreshTokenService.create(user))
+                .thenReturn("new-refresh-token");
+
+        when(jwtService.getAccessTokenExpirationSeconds())
+                .thenReturn(3600L);
+
+        RefreshTokenRequest request =
+                new RefreshTokenRequest(
+                        "old-refresh-token"
+                );
+
+        TokenResponse response =
+                userService.refresh(request);
+
+        assertNotNull(response);
+
+        assertEquals(
+                "new-access-token",
+                response.accessToken()
+        );
+
+        assertEquals(
+                "new-refresh-token",
+                response.refreshToken()
+        );
+
+        assertTrue(refreshToken.isRevoked());
+
+        verify(refreshTokenRepository)
+                .save(refreshToken);
+    }
+
+    @Test
+    void logout_shouldRevokeRefreshToken() {
+
+        RefreshToken refreshToken =
+                new RefreshToken();
+
+        refreshToken.setUser(user);
+        refreshToken.setRevoked(false);
+
+        when(refreshTokenService.findValid(
+                "refresh-token"))
+                .thenReturn(refreshToken);
+
+        LogoutRequest request =
+                new LogoutRequest(
+                        "refresh-token"
+                );
+
+        userService.logout(
+                request,
+                "1"
+        );
+
+        assertTrue(refreshToken.isRevoked());
+    }
+
+    @Test
+    void logout_shouldFailWhenTokenBelongsToDifferentUser() {
+
+        User anotherUser = User.builder()
+                .id(99L)
+                .name("Another User")
+                .email("another@example.com")
+                .role("USER")
+                .build();
+
+        RefreshToken refreshToken =
+                new RefreshToken();
+
+        refreshToken.setUser(anotherUser);
+        refreshToken.setRevoked(false);
+
+        when(refreshTokenService.findValid(
+                "refresh-token"))
+                .thenReturn(refreshToken);
+
+        LogoutRequest request =
+                new LogoutRequest(
+                        "refresh-token"
+                );
+
+        assertThrows(
+                RuntimeException.class,
+                () -> userService.logout(
+                        request,
+                        "1"
+                )
+        );
     }
 }

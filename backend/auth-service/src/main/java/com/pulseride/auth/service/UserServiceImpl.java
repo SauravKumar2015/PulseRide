@@ -15,10 +15,10 @@ import com.pulseride.auth.dto.RefreshTokenRequest;
 import com.pulseride.auth.dto.RegisterRequest;
 import com.pulseride.auth.dto.TokenResponse;
 import com.pulseride.auth.dto.UserResponse;
-import com.pulseride.auth.entity.User;
 import com.pulseride.auth.entity.RefreshToken;
-import com.pulseride.auth.exception.UserAlreadyExistsException;
+import com.pulseride.auth.entity.User;
 import com.pulseride.auth.exception.InvalidRefreshTokenException;
+import com.pulseride.auth.exception.UserAlreadyExistsException;
 import com.pulseride.auth.repository.RefreshTokenRepository;
 import com.pulseride.auth.repository.UserRepository;
 import com.pulseride.auth.security.JwtService;
@@ -29,19 +29,25 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
-    
+
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+
     private final DriverClient driverClient;
+
+    // NEW: user-service client
+    private final UserClient userClient;
 
     @Override
     @Transactional
     public UserResponse register(RegisterRequest request) {
 
-        String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+        String email = request.getEmail()
+                .trim()
+                .toLowerCase(Locale.ROOT);
 
         if (userRepository.existsByEmail(email)) {
             throw new UserAlreadyExistsException(
@@ -60,17 +66,34 @@ public class UserServiceImpl implements UserService {
         User savedUser;
 
         try {
-            savedUser = userRepository.save(user);
+        savedUser = userRepository.save(user);
         } catch (DataIntegrityViolationException exception) {
-            throw new UserAlreadyExistsException(
-                    "User with this email already exists"
-            );
+        throw new UserAlreadyExistsException(
+                "User with this email already exists"
+        );
         }
 
-        // Automatically create driver profile
-        if ("DRIVER".equals(savedUser.getRole())) {
-            driverClient.createDriverProfile(savedUser.getId());
+        // Create profile based on user role
+        if ("USER".equals(savedUser.getRole())) {
+
+        // USER → user-service
+        userClient.createUserProfile(
+                savedUser.getId(),
+                savedUser.getName(),
+                savedUser.getEmail(),
+                savedUser.getRole()
+        );
+
+        } else if ("DRIVER".equals(savedUser.getRole())) {
+
+        // DRIVER → driver-service
+        driverClient.createDriverProfile(savedUser.getId());
+
         }
+
+        // ADMIN does not create a user-service or driver-service profile
+
+
 
         return UserResponse.builder()
                 .id(savedUser.getId())
@@ -84,36 +107,83 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public TokenResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.email().trim().toLowerCase(Locale.ROOT))
-                .orElseThrow(() -> new BadCredentialsException("Authentication failed"));
-        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
-            throw new BadCredentialsException("Authentication failed");
+
+        User user = userRepository
+                .findByEmail(
+                        request.email()
+                                .trim()
+                                .toLowerCase(Locale.ROOT)
+                )
+                .orElseThrow(
+                        () -> new BadCredentialsException(
+                                "Authentication failed"
+                        )
+                );
+
+        if (!passwordEncoder.matches(
+                request.password(),
+                user.getPassword())) {
+
+            throw new BadCredentialsException(
+                    "Authentication failed"
+            );
         }
+
         return issueTokens(user);
     }
 
     @Override
     @Transactional
-    public TokenResponse refresh(RefreshTokenRequest request) {
-        RefreshToken token = refreshTokenService.findValid(request.refreshToken());
+    public TokenResponse refresh(
+            RefreshTokenRequest request) {
+
+        RefreshToken token =
+                refreshTokenService.findValid(
+                        request.refreshToken()
+                );
+
         token.setRevoked(true);
+
         refreshTokenRepository.save(token);
+
         return issueTokens(token.getUser());
     }
 
     @Override
     @Transactional
-    public void logout(LogoutRequest request, String authenticatedUserId) {
-        RefreshToken token = refreshTokenService.findValid(request.refreshToken());
-        if (!token.getUser().getId().toString().equals(authenticatedUserId)) {
+    public void logout(
+            LogoutRequest request,
+            String authenticatedUserId) {
+
+        RefreshToken token =
+                refreshTokenService.findValid(
+                        request.refreshToken()
+                );
+
+        if (!token.getUser()
+                .getId()
+                .toString()
+                .equals(authenticatedUserId)) {
+
             throw new InvalidRefreshTokenException();
         }
+
         token.setRevoked(true);
     }
 
     private TokenResponse issueTokens(User user) {
-        String accessToken = jwtService.createAccessToken(user);
-        String refreshToken = refreshTokenService.create(user);
-        return new TokenResponse(accessToken, refreshToken, "Bearer", jwtService.getAccessTokenExpirationSeconds());
+
+        String accessToken =
+                jwtService.createAccessToken(user);
+
+        String refreshToken =
+                refreshTokenService.create(user);
+
+        return new TokenResponse(
+                accessToken,
+                refreshToken,
+                "Bearer",
+                jwtService.getAccessTokenExpirationSeconds()
+        );
     }
 }

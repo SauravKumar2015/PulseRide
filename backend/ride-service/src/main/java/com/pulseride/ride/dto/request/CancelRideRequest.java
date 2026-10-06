@@ -11,6 +11,9 @@ import lombok.Setter;
 @NoArgsConstructor
 public class CancelRideRequest {
 
-    @Size(max = 500, message = "Cancellation reason must not exceed 500 characters")
+    @Size(
+            max = 500,
+            message = "Cancellation reason must not exceed 500 characters"
+    )
     private String reason;
 }

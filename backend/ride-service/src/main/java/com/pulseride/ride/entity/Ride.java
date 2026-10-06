@@ -38,16 +38,36 @@ public class Ride {
     @Column(name = "status", nullable = false)
     private RideStatus status;
 
-    @Column(name = "pickup_latitude", nullable = false, precision = 10, scale = 7)
+    @Column(
+            name = "pickup_latitude",
+            nullable = false,
+            precision = 10,
+            scale = 7
+    )
     private BigDecimal pickupLatitude;
 
-    @Column(name = "pickup_longitude", nullable = false, precision = 10, scale = 7)
+    @Column(
+            name = "pickup_longitude",
+            nullable = false,
+            precision = 10,
+            scale = 7
+    )
     private BigDecimal pickupLongitude;
 
-    @Column(name = "dropoff_latitude", nullable = false, precision = 10, scale = 7)
+    @Column(
+            name = "dropoff_latitude",
+            nullable = false,
+            precision = 10,
+            scale = 7
+    )
     private BigDecimal dropoffLatitude;
 
-    @Column(name = "dropoff_longitude", nullable = false, precision = 10, scale = 7)
+    @Column(
+            name = "dropoff_longitude",
+            nullable = false,
+            precision = 10,
+            scale = 7
+    )
     private BigDecimal dropoffLongitude;
 
     @Column(name = "created_at", nullable = false, updatable = false)

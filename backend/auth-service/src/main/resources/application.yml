@@ -33,3 +33,5 @@ jwt:
 services:
   driver:
     url: ${DRIVER_SERVICE_URL:http://localhost:8083}
+  user:
+    url: http://localhost:8086

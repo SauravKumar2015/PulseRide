@@ -1,15 +1,33 @@
 spring:
   application:
     name: user-service
+
   datasource:
     url: ${USER_DB_URL:jdbc:postgresql://localhost:5432/pulseride_user}
     username: ${USER_DB_USERNAME:postgres}
-    password: ${USER_DB_PASSWORD:}
+    password: ${USER_DB_PASSWORD:123}
+    driver-class-name: org.postgresql.Driver
+
   jpa:
     hibernate:
       ddl-auto: update
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
 server:
-  port: ${USER_SERVICE_PORT:8082}
+  port: ${USER_SERVICE_PORT:8086}
+  servlet:
+    context-path: /pulse-ride
+
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:ca3ae9dc7984009cfa286be0ffeabd5e78b0620e51fbf7f1f40c1811ca08b781}
   issuer: ${JWT_ISSUER:pulseride-auth}
+
+logging:
+  level:
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO

@@ -10,7 +10,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: ${RIDE_JPA_DDL_AUTO:update}
+      ddl-auto: ${RIDE_JPA_DDL_AUTO:validate}
     open-in-view: false
 
   kafka:
@@ -18,11 +18,13 @@ spring:
 
 server:
   port: ${RIDE_SERVICE_PORT:8084}
+
   servlet:
     context-path: /pulse-ride
 
 jwt:
   secret: ${JWT_SECRET:ca3ae9dc7984009cfa286be0ffeabd5e78b0620e51fbf7f1f40c1811ca08b781}
+
   issuer: ${JWT_ISSUER:pulseride-auth}
 
 cors:
